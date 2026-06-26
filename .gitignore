@@ -8,6 +8,8 @@ ENV/
 
 # Local Garmin cached runs
 data/
+*.csv
+
 
 # IDEs
 .vscode/
