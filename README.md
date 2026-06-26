@@ -63,3 +63,10 @@ The server will start on: **[http://127.0.0.1:8080](http://127.0.0.1:8080)**
 ├── requirements.txt # Python dependency file
 └── .gitignore       # Prevents local data, venv, and credentials from committing
 ```
+
+## 💡 Sync Tips & Troubleshooting
+
+* **Garmin Rate Limiting (HTTP 429)**: The unofficial Garmin Connect API simulates browser logins. If you attempt to sync too frequently, Garmin may temporarily rate-limit your IP address (returning `429: Too Many Requests`). If this occurs, wait a few minutes before trying again.
+* **MFA & Authentication Blocks**: If your account has Multi-Factor Authentication (MFA) enabled or encounters security challenges, the direct sync might be blocked.
+* **Safe Fallback (Manual Uploads)**: You can always download your raw activities as `.fit`, `.gpx`, or `.tcx` files directly from the Garmin Connect Web Portal (or request a bulk GDPR archive) and drag-and-drop them into the dashboard.
+* **Credentials Security**: Your email and password are submitted only to your locally-running FastAPI server to communicate with Garmin, and are never saved or transmitted elsewhere.
