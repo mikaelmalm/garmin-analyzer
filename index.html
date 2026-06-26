@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Garmin Connect Analyzer - Sync your Garmin health metrics, upload FIT/GPX tracks, group routes spatially, and visualize speed, heart rate, and pacing performance improvements over time.">
+    <title>Garmin Connect Track Analyzer & Progress Tracker</title>
+    
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Leaflet.js Maps Styling & Assets -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom Premium Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Semantic Site Header -->
+    <header>
+        <div class="brand">
+            <div class="brand-icon" aria-hidden="true">
+                <!-- Sleek athletic sneaker path icon -->
+                <svg viewBox="0 0 24 24">
+                    <path d="M21.5,9c-0.3-0.6-0.9-1-1.6-1h-4.2l-2.6-4.5c-0.3-0.5-0.8-0.8-1.4-0.8s-1.1,0.3-1.4,0.8L8.6,6.7C8.2,6.3,7.6,6,7,6H3 C1.9,6,1,6.9,1,8v5c0,1.1,0.9,2,2,2h1.2l1.6,4.7c0.2,0.7,0.9,1.3,1.7,1.3h5.1c0.7,0,1.4-0.4,1.7-1l1.5-2.7c0.2-0.3,0.5-0.5,0.9-0.5 h2.8c0.6,0,1.1-0.3,1.4-0.8l2.6-4.7c0.4-0.7,0.4-1.6,0-2.3L21.5,9z M13.8,17.2l-1.5,2.7C12.2,20,12.1,20,12,20H6.9l-1.4-4h2.2 c0.6,0,1.1-0.3,1.4-0.8l1.4-2.5l2.2,3.9C13,16.8,13.4,17.1,13.8,17.2z" />
+                </svg>
+            </div>
+            <h1>Garmin Connect Analyzer</h1>
+        </div>
+        <div class="header-actions">
+            <button id="toggle-sync-modal" class="btn-premium" aria-haspopup="dialog">
+                Connect & Import
+            </button>
+        </div>
+    </header>
+
+    <!-- Dashboard Core Layout -->
+    <main class="dashboard-grid">
+        
+        <!-- Sidebar Navigation (Spatially Grouped Route Track Explorer) -->
+        <section class="sidebar glass-panel" aria-label="Route Tracks Explorer">
+            <h2 class="sidebar-title">Tracks Explorer</h2>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                Select a repeating physical route below to trace performance improvements over time:
+            </p>
+            <div id="routes-list" class="routes-list-container" role="list">
+                <!-- Loaded dynamically by App -->
+                <div class="route-sidebar-card active" style="pointer-events: none; opacity: 0.5;">
+                    <div style="text-align: center; padding: 1.5rem 0;">
+                        <span class="spinner"></span> Loading Tracks...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard View Panel -->
+        <section class="main-content" aria-label="Route Metrics & Analytics">
+            
+            <!-- Dashboard HUD (Aggregate stats for the active route group) -->
+            <div class="track-header">
+                <h2 id="track-title">Lake Loop</h2>
+                <div class="runs-selector-wrapper">
+                    <div class="selector-group">
+                        <label for="runs-selector">Active Run:</label>
+                        <select id="runs-selector" class="premium-select">
+                            <option>Loading sessions...</option>
+                        </select>
+                    </div>
+                    <div class="compare-toggle-container">
+                        <input type="checkbox" id="compare-mode-toggle" class="premium-checkbox">
+                        <label for="compare-mode-toggle" class="compare-toggle-label">Compare Mode</label>
+                    </div>
+                    <div id="compare-selector-group" class="selector-group" style="display: none;">
+                        <label for="compare-runs-selector">Compare with:</label>
+                        <select id="compare-runs-selector" class="premium-select">
+                            <option>Select run...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hud-grid" role="region" aria-label="Track Summary Statistics">
+                <div class="glass-panel hud-card distance" id="hud-distance">
+                    <span class="hud-label">Track Distance</span>
+                    <span class="hud-value" id="stat-distance">-- km</span>
+                </div>
+                <div class="glass-panel hud-card pace" id="hud-pace">
+                    <span class="hud-label">Average Pace</span>
+                    <span class="hud-value" id="stat-pace">--/km</span>
+                </div>
+                <div class="glass-panel hud-card best-pace" id="hud-best-pace">
+                    <span class="hud-label">Best Record Pace</span>
+                    <span class="hud-value" id="stat-best-pace">--/km</span>
+                </div>
+                <div class="glass-panel hud-card hr" id="hud-hr">
+                    <span class="hud-label">Average Heart Rate</span>
+                    <span class="hud-value" id="stat-hr">-- bpm</span>
+                </div>
+            </div>
+
+            <!-- Workspace Center: Leaflet Segmented Map & Detailed Continuous Telemetry Graph -->
+            <div class="workspace-row">
+                
+                <!-- Map View Area -->
+                <div class="map-wrapper" aria-label="Route Track Visual Map">
+                    <div id="map-container"></div>
+                    
+                    <!-- Overlay Path Color Mode Toggle -->
+                    <div class="map-overlay-controls" role="group" aria-label="Map color coding controls">
+                        <button id="btn-map-hr" class="btn-toggle active">Heart Rate</button>
+                        <button id="btn-map-speed" class="btn-toggle">Speed / Pace</button>
+                    </div>
+
+                    <!-- Glowing Scrubbing HUD -->
+                    <div id="scrub-hud">
+                        <!-- Populated dynamically during chart scrubbing -->
+                    </div>
+                </div>
+
+                <!-- Run Telemetry Chart Area -->
+                <div class="glass-panel chart-panel" aria-label="Active Run Telemetry Chart">
+                    <div class="chart-header">
+                        <h3>Run Performance Telemetry</h3>
+                        <span class="badge" style="background: rgba(6, 182, 212, 0.1); color: var(--cyan);">Interactive Scrubbing</span>
+                    </div>
+                    <div class="chart-container-inner">
+                        <canvas id="telemetry-chart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Historic Progress Panel (Chart plotting speed/HR improvement over multiple activities) -->
+            <div class="glass-panel progress-panel" aria-label="Historical Progress Analytics">
+                <div class="chart-header">
+                    <h3>Historical Route Progress Analytics</h3>
+                    <p style="font-size: 0.75rem; color: var(--text-muted);">
+                        Trace average pace reduction and heart rate cardiovascular improvements across successive runs on this track.
+                    </p>
+                </div>
+                <div class="chart-container-inner" style="height: 200px;">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Sync Modal Container Dialog -->
+    <div id="sync-modal" class="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="modal-title">Sync & Import Activities</h3>
+                <button id="close-sync-modal" class="btn-close" aria-label="Close modal">&times;</button>
+            </div>
+            
+            <!-- Tab Group (Upload vs Garmin Login) -->
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Direct File Upload Dropzone -->
+                <div id="upload-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload activity files (.fit, .gpx, .tcx, .csv)">
+                    <div class="dropzone-icon">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                    </div>
+                    <h4>Drag & Drop Activity File</h4>
+                    <p>Supports Garmin .fit, .gpx, .tcx, or .csv formats</p>
+                    <input type="file" id="file-input" style="display: none;" accept=".fit,.gpx,.tcx,.csv">
+                </div>
+
+                <div id="upload-status-msg" role="status"></div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border-color);" />
+
+                <!-- Garmin API Sync Form -->
+                <form id="garmin-sync-form">
+                    <h4 style="margin-bottom: 0.75rem; font-family: 'Outfit', sans-serif;">Connect Garmin Account</h4>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Log in to pull activities dynamically. Sync handles credentials safely on your local computer only.
+                    </p>
+                    
+                    <div class="form-group">
+                        <label for="garmin-email">Garmin Account Email</label>
+                        <input type="email" id="garmin-email" placeholder="runner@example.com" required autocomplete="username">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="garmin-password">Account Password</label>
+                        <input type="password" id="garmin-password" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="btn-premium" style="width: 100%; justify-content: center;">
+                        Sync Garmin Account
+                    </button>
+                </form>
+
+                <div id="sync-status-msg" role="status"></div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Central Modular ES Loader Script -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
